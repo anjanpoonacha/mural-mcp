@@ -1,0 +1,30 @@
+{
+  "name": "@anjanpoonacha/mural-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Mural visual collaboration platform — 51 tools, Bun runtime, full API coverage",
+  "type": "module",
+  "bin": {
+    "mural-mcp": "./bin/mural-mcp"
+  },
+  "scripts": {
+    "start": "bun src/index.ts",
+    "auth": "bun scripts/auth.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "image-size": "^2.0.2",
+    "open": "^10.1.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "keywords": ["mcp", "mural", "mcp-server", "model-context-protocol"],
+  "author": "anjanpoonacha",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anjanpoonacha/mural-mcp.git"
+  }
+}
