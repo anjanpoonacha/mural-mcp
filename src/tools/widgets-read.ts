@@ -17,7 +17,7 @@ export function registerWidgetReadTools(server: McpServer) {
   // --- get_widgets (paginated, stripped) ---
   server.tool(
     "get_widgets",
-    "List widgets on a mural (stripped to key fields). Default limit 50. Use 'next' cursor to paginate.",
+    "List widgets on a mural. Default limit 50. Use 'next' cursor to paginate.",
     {
       muralId: z.string().describe(MURAL_ID_DESC),
       type: z
@@ -76,7 +76,7 @@ export function registerWidgetReadTools(server: McpServer) {
   // --- get_widget (single by ID, stripped) ---
   server.tool(
     "get_widget",
-    "Get a single widget by ID (stripped to key fields).",
+    "Get a single widget by ID.",
     {
       muralId: z.string().describe(MURAL_ID_DESC),
       widgetId: z.string().describe("Widget ID"),

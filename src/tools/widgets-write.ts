@@ -58,6 +58,82 @@ function textErr(t: string) {
   return { content: [{ type: "text" as const, text: t }], isError: true };
 }
 
+type Rect = { x: number; y: number; w: number; h: number };
+type Pt = { x: number; y: number };
+
+/**
+ * Compute arrow geometry between two widgets.
+ *
+ * CRITICAL: Mural's points[] are RELATIVE to the widget bounding box (x,y).
+ * - The bounding box x/y = absolute canvas position of the arrow's top-left corner
+ * - points[0] = arrowhead, points[1] = tail (confirmed from manual arrow inspection)
+ * - point coords are offsets from (x, y): so {x:0,y:0} = top-left of bbox
+ *
+ * Returns: absolute bbox origin + relative points ready to POST to API.
+ */
+function computeArrowGeometry(src: Rect, tgt: Rect): {
+  x: number; y: number; width: number; height: number;
+  points: Pt[];
+} {
+  const srcCenterX = src.x + src.w / 2;
+  const srcCenterY = src.y + src.h / 2;
+  const tgtCenterX = tgt.x + tgt.w / 2;
+  const tgtCenterY = tgt.y + tgt.h / 2;
+
+  const dy = tgtCenterY - srcCenterY;
+  const dx = tgtCenterX - srcCenterX;
+
+  // Absolute canvas positions of the two endpoints
+  let tailAbs: Pt;
+  let headAbs: Pt;
+
+  if (Math.abs(dy) >= Math.abs(dx)) {
+    if (dy > 0) {
+      // Target below: tail = src bottom-center, head = tgt top-center
+      tailAbs = { x: srcCenterX, y: src.y + src.h };
+      headAbs = { x: tgtCenterX, y: tgt.y };
+    } else {
+      // Target above: tail = src top-center, head = tgt bottom-center
+      tailAbs = { x: srcCenterX, y: src.y };
+      headAbs = { x: tgtCenterX, y: tgt.y + tgt.h };
+    }
+  } else {
+    if (dx > 0) {
+      // Target right: tail = src right-center, head = tgt left-center
+      tailAbs = { x: src.x + src.w, y: srcCenterY };
+      headAbs = { x: tgt.x, y: tgtCenterY };
+    } else {
+      // Target left: tail = src left-center, head = tgt right-center
+      tailAbs = { x: src.x, y: srcCenterY };
+      headAbs = { x: tgt.x + tgt.w, y: tgtCenterY };
+    }
+  }
+
+  // Bounding box: top-left of the two absolute endpoints
+  const bboxX = Math.min(tailAbs.x, headAbs.x);
+  const bboxY = Math.min(tailAbs.y, headAbs.y);
+  const bboxW = Math.max(1, Math.abs(headAbs.x - tailAbs.x));
+  const bboxH = Math.max(1, Math.abs(headAbs.y - tailAbs.y));
+
+  // Convert to relative coords (offset from bbox origin)
+  // points[0] = arrowhead (head), points[1] = tail
+  const headRel: Pt = { x: headAbs.x - bboxX, y: headAbs.y - bboxY };
+  const tailRel: Pt = { x: tailAbs.x - bboxX, y: tailAbs.y - bboxY };
+
+  return {
+    x: bboxX,
+    y: bboxY,
+    width: bboxW,
+    height: bboxH,
+    points: [headRel, tailRel],
+  };
+}
+
+/** Merge caller style with defaults. textAlign defaults to "left" unless overridden. */
+function withStyleDefaults(style?: Record<string, unknown>): Record<string, unknown> {
+  return { textAlign: "left", ...style };
+}
+
 export function registerWidgetWriteTools(server: McpServer) {
   // ============================
   // STICKY NOTES
@@ -112,7 +188,7 @@ export function registerWidgetWriteTools(server: McpServer) {
         return {
           ...rest,
           shape: s.shape ?? "rectangle",
-          ...(style && { style }),
+          style: withStyleDefaults(style as Record<string, unknown> | undefined),
         };
       });
 
@@ -223,9 +299,13 @@ export function registerWidgetWriteTools(server: McpServer) {
     },
     withTool("create_text_boxes", async ({ muralId: rawMuralId, textBoxes }) => {
       const { id: muralId, error: muralIdErr } = normalizeMuralId(rawMuralId); if (muralIdErr) return textErr(muralIdErr);
+      const body = textBoxes.map((t) => {
+        const { style, ...rest } = t as Record<string, unknown>;
+        return { ...rest, style: withStyleDefaults(style as Record<string, unknown> | undefined) };
+      });
       const data = await muralApi.post<ListResponse<Widget>>(
         `/murals/${muralId}/widgets/textbox`,
-        textBoxes
+        body
       );
 
       return text(batchResponse(`Created ${data.value.length} text box(es)`, data.value));
@@ -329,10 +409,13 @@ export function registerWidgetWriteTools(server: McpServer) {
           return textErr(`Invalid shape "${s.shape}". Valid: rectangle, circle, diamond, triangle, star, hexagon, ellipse, rhombus_smart, rounded_square, ...`);
         }
       }
-
+      const body = shapes.map((s) => {
+        const { style, ...rest } = s as Record<string, unknown>;
+        return { ...rest, style: withStyleDefaults(style as Record<string, unknown> | undefined) };
+      });
       const data = await muralApi.post<ListResponse<Widget>>(
         `/murals/${muralId}/widgets/shape`,
-        shapes
+        body
       );
 
       return text(batchResponse(`Created ${data.value.length} shape(s)`, data.value));
@@ -582,6 +665,7 @@ export function registerWidgetWriteTools(server: McpServer) {
       sourceX: z.number(), sourceY: z.number(),
       sourceWidth: z.number(), sourceHeight: z.number(),
       targetX: z.number(), targetY: z.number(),
+      targetWidth: z.number().optional(), targetHeight: z.number().optional(),
       arrowType: z.enum(["straight", "curved", "orthogonal"]).optional(),
       style: z
         .object({
@@ -591,21 +675,19 @@ export function registerWidgetWriteTools(server: McpServer) {
         })
         .optional(),
     },
-    withTool("connect_widgets", async ({ muralId: rawMuralId, sourceWidgetId, targetWidgetId, sourceX, sourceY, sourceWidth, sourceHeight, targetX, targetY, arrowType, style }) => {
+    withTool("connect_widgets", async ({ muralId: rawMuralId, sourceWidgetId, targetWidgetId, sourceX, sourceY, sourceWidth, sourceHeight, targetX, targetY, targetWidth, targetHeight, arrowType, style }) => {
       const { id: muralId, error: muralIdErr } = normalizeMuralId(rawMuralId); if (muralIdErr) return textErr(muralIdErr);
-      const arrowX = sourceX + sourceWidth;
-      const arrowY = sourceY + sourceHeight / 2;
-      const arrowWidth = Math.max(1, Math.abs(targetX - arrowX));
-      const arrowHeight = 1;
-      const points = [
-        { x: arrowWidth, y: 0 },
-        { x: 0, y: 0 },
-      ];
+
+      const geom = computeArrowGeometry(
+        { x: sourceX, y: sourceY, w: sourceWidth, h: sourceHeight },
+        { x: targetX, y: targetY, w: targetWidth ?? sourceWidth, h: targetHeight ?? sourceHeight }
+      );
 
       const body: Record<string, unknown> = {
-        x: arrowX, y: arrowY, width: arrowWidth, height: arrowHeight,
-        points, arrowType: arrowType || "curved",
-        startRefId: sourceWidgetId, endRefId: targetWidgetId,
+        ...geom,
+        arrowType: arrowType || "straight",
+        startRefId: sourceWidgetId,
+        endRefId: targetWidgetId,
       };
       if (style) body.style = style;
 
@@ -635,6 +717,7 @@ export function registerWidgetWriteTools(server: McpServer) {
             sourceX: z.number(), sourceY: z.number(),
             sourceWidth: z.number(), sourceHeight: z.number(),
             targetX: z.number(), targetY: z.number(),
+            targetWidth: z.number().optional(), targetHeight: z.number().optional(),
             arrowType: z.enum(["straight", "curved", "orthogonal"]).optional(),
           })
         )
@@ -656,19 +739,16 @@ export function registerWidgetWriteTools(server: McpServer) {
 
       for (const c of connections) {
         try {
-          const arrowX = c.sourceX + c.sourceWidth;
-          const arrowY = c.sourceY + c.sourceHeight / 2;
-          const arrowWidth = Math.max(1, Math.abs(c.targetX - arrowX));
-          const arrowHeight = 1;
-          const points = [
-            { x: arrowWidth, y: 0 },
-            { x: 0, y: 0 },
-          ];
+          const geom = computeArrowGeometry(
+            { x: c.sourceX, y: c.sourceY, w: c.sourceWidth, h: c.sourceHeight },
+            { x: c.targetX, y: c.targetY, w: c.targetWidth ?? c.sourceWidth, h: c.targetHeight ?? c.sourceHeight }
+          );
 
           const body: Record<string, unknown> = {
-            x: arrowX, y: arrowY, width: arrowWidth, height: arrowHeight,
-            points, arrowType: c.arrowType || "curved",
-            startRefId: c.sourceWidgetId, endRefId: c.targetWidgetId,
+            ...geom,
+            arrowType: c.arrowType || "straight",
+            startRefId: c.sourceWidgetId,
+            endRefId: c.targetWidgetId,
           };
           if (style) body.style = style;
 
@@ -704,7 +784,7 @@ export function registerWidgetWriteTools(server: McpServer) {
       points: z
         .array(z.object({ x: z.number(), y: z.number() }))
         .min(2)
-        .describe("Arrow path points. Arrowhead at FIRST point."),
+        .describe("Arrow path points as coordinates RELATIVE to the widget bounding box (x,y). {x:0,y:0} = top-left of bbox. points[0] = arrowhead, points[1] = tail."),
       arrowType: z.enum(["straight", "curved", "orthogonal"]).optional(),
       style: z
         .object({
@@ -861,9 +941,13 @@ export function registerWidgetWriteTools(server: McpServer) {
     },
     withTool("create_title", async ({ muralId: rawMuralId, titles }) => {
       const { id: muralId, error: muralIdErr } = normalizeMuralId(rawMuralId); if (muralIdErr) return textErr(muralIdErr);
+      const body = titles.map((t) => {
+        const { style, ...rest } = t as Record<string, unknown>;
+        return { ...rest, style: withStyleDefaults(style as Record<string, unknown> | undefined) };
+      });
       const data = await muralApi.post<ListResponse<Widget>>(
         `/murals/${muralId}/widgets/title`,
-        titles
+        body
       );
 
       return text(batchResponse(`Created ${data.value.length} title(s)`, data.value));
