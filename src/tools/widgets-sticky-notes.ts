@@ -20,7 +20,7 @@ export function registerStickyNoteTools(server: McpServer) {
             text: z.string().describe("Sticky note text"),
             width: z.number().optional(),
             height: z.number().optional(),
-            shape: z.enum(["rectangle", "circle"]).optional(),
+            shape: z.enum(["rectangle", "circle"]).default("rectangle").describe("Shape of the sticky note. Default: rectangle"),
             htmlText: z.string().optional(),
             hidden: z.boolean().optional(),
             hyperlink: z.string().url().optional(),
@@ -57,7 +57,7 @@ export function registerStickyNoteTools(server: McpServer) {
         const { style, ...rest } = s;
         return {
           ...rest,
-          shape: s.shape ?? "rectangle",
+          shape: s.shape,
           style: withTextStyleDefaults(style as Record<string, unknown> | undefined),
         };
       });

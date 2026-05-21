@@ -21,7 +21,7 @@ export function registerShapeTools(server: McpServer) {
             height: z.number().describe("Height in px"),
             text: z.string().optional(),
             htmlText: z.string().optional(),
-            shape: z.string().optional().describe("Shape type (default: rectangle)"),
+            shape: z.string().default("rectangle").describe("Shape type. Default: rectangle. Others: circle, diamond, triangle, star, hexagon, ellipse, rounded_square, etc. Full list validated server-side."),
             hidden: z.boolean().optional(),
             instruction: z.string().optional(),
             parentId: z.string().optional(),
