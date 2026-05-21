@@ -136,6 +136,27 @@ export function stripWidget(w: Widget): Record<string, unknown> {
       break;
     }
 
+    case "table": {
+      const t = w as Record<string, unknown>;
+      if (t["title"] !== undefined) out.title = t["title"];
+      if (t["autoResize"] !== undefined) out.autoResize = t["autoResize"];
+      if (t["rows"]) out.rows = t["rows"];
+      if (t["columns"]) out.columns = t["columns"];
+      if (t["style"]) out.style = t["style"];
+      break;
+    }
+
+    case "table cell": {
+      const t = w as Record<string, unknown>;
+      if (t["rowId"] !== undefined) out.rowId = t["rowId"];
+      if (t["columnId"] !== undefined) out.columnId = t["columnId"];
+      if (t["rowSpan"] !== undefined) out.rowSpan = t["rowSpan"];
+      if (t["colSpan"] !== undefined) out.colSpan = t["colSpan"];
+      if (t["style"]) out.style = t["style"];
+      if (t["textContent"]) out.textContent = t["textContent"];
+      break;
+    }
+
     default: {
       // Unknown widget type — pass through any known base fields
       const any = w as Record<string, unknown>;

@@ -17,7 +17,17 @@ export function registerWidgetReadTools(server: McpServer) {
   // --- get_widgets (paginated, stripped) ---
   server.tool(
     "get_widgets",
-    "List widgets on a mural. Default limit 50. Use 'next' cursor to paginate.",
+    [
+      "List widgets on a mural. Default limit 50. Use 'next' cursor to paginate.",
+      "",
+      "IMPORTANT — type filter limitations (from the API spec):",
+      "The 'type' filter only accepts these exact values:",
+      "  sticky notes, texts, shapes, areas, images, arrows, icons, files, comments",
+      "",
+      "Tables and table cells CANNOT be filtered by type.",
+      "To find tables: omit the type filter and check for type === 'table' or type === 'table cell' in the results.",
+      "Table cells have a parentId pointing to their parent table widget.",
+    ].join("\n"),
     {
       muralId: z.string().describe(MURAL_ID_DESC),
       type: z
@@ -30,13 +40,16 @@ export function registerWidgetReadTools(server: McpServer) {
           "arrows",
           "icons",
           "files",
+          "comments",
         ])
         .optional()
-        .describe("Filter by widget type"),
+        .describe(
+          "Filter by widget type. Valid values: sticky notes, texts, shapes, areas, images, arrows, icons, files, comments. NOTE: 'tables' is NOT a valid filter — omit type to get all widgets including tables."
+        ),
       filterByParentId: z
         .string()
         .optional()
-        .describe("Filter widgets by parent area widget ID"),
+        .describe("Filter widgets by parent area or table widget ID"),
       limit: z
         .number()
         .min(1)

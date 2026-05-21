@@ -4,7 +4,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { initWorkspaceGuard } from "./auth/workspace-guard";
 import { registerNavigationTools } from "./tools/navigation";
 import { registerWidgetReadTools } from "./tools/widgets-read";
-import { registerWidgetWriteTools } from "./tools/widgets-write";
+import { registerStickyNoteTools } from "./tools/widgets-sticky-notes";
+import { registerTextTools } from "./tools/widgets-text";
+import { registerShapeTools } from "./tools/widgets-shapes";
+import { registerAreaTools } from "./tools/widgets-areas";
+import { registerImageTools } from "./tools/widgets-images";
+import { registerArrowTools } from "./tools/widgets-arrows";
+import { registerTableTools } from "./tools/widgets-table";
+import { registerMiscWidgetTools } from "./tools/widgets-misc";
 import { registerMuralManageTools } from "./tools/mural-manage";
 import { registerMuralFeatureTools } from "./tools/mural-features";
 import { registerTemplateTools } from "./tools/templates";
@@ -22,7 +29,14 @@ const server = new McpServer({
 // Register all tool groups
 registerNavigationTools(server);
 registerWidgetReadTools(server);
-registerWidgetWriteTools(server);
+registerStickyNoteTools(server);
+registerTextTools(server);
+registerShapeTools(server);
+registerAreaTools(server);
+registerImageTools(server);
+registerArrowTools(server);
+registerTableTools(server);
+registerMiscWidgetTools(server);
 registerMuralManageTools(server);
 registerMuralFeatureTools(server);
 registerTemplateTools(server);
