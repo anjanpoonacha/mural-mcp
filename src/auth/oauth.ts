@@ -160,14 +160,13 @@ export async function refreshAccessToken(tokens: StoredTokens): Promise<StoredTo
 
 /**
  * Get a valid access token, refreshing if necessary.
+ * If no tokens exist, triggers the OAuth flow inline (before any stdio is active).
  * This is the main entry point used by the MCP server at runtime.
  */
 export async function getValidAccessToken(): Promise<string> {
   let tokens = await loadTokens();
   if (!tokens) {
-    throw new Error(
-      "No stored tokens found. Run 'npm run auth' in the mural-mcp directory first."
-    );
+    tokens = await performOAuthFlow();
   }
 
   if (isTokenExpired(tokens)) {
@@ -177,20 +176,3 @@ export async function getValidAccessToken(): Promise<string> {
   return tokens.access_token;
 }
 
-/**
- * Ensure we have valid tokens — runs the OAuth flow if none exist.
- * Call this before starting the MCP stdio transport so the browser
- * interaction completes before stdio is taken over.
- */
-export async function ensureAuthenticated(): Promise<void> {
-  const tokens = await loadTokens();
-  if (!tokens) {
-    console.error("No Mural tokens found. Starting OAuth flow...");
-    await performOAuthFlow();
-    console.error("Authentication complete. Starting MCP server...");
-    return;
-  }
-  if (isTokenExpired(tokens)) {
-    await refreshAccessToken(tokens);
-  }
-}
