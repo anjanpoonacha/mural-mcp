@@ -176,3 +176,21 @@ export async function getValidAccessToken(): Promise<string> {
 
   return tokens.access_token;
 }
+
+/**
+ * Ensure we have valid tokens — runs the OAuth flow if none exist.
+ * Call this before starting the MCP stdio transport so the browser
+ * interaction completes before stdio is taken over.
+ */
+export async function ensureAuthenticated(): Promise<void> {
+  const tokens = await loadTokens();
+  if (!tokens) {
+    console.error("No Mural tokens found. Starting OAuth flow...");
+    await performOAuthFlow();
+    console.error("Authentication complete. Starting MCP server...");
+    return;
+  }
+  if (isTokenExpired(tokens)) {
+    await refreshAccessToken(tokens);
+  }
+}

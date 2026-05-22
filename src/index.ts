@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { ensureAuthenticated } from "./auth/oauth";
 import { initWorkspaceGuard } from "./auth/workspace-guard";
 import { registerNavigationTools } from "./tools/navigation";
 import { registerWidgetReadTools } from "./tools/widgets-read";
@@ -43,6 +44,7 @@ registerTemplateTools(server);
 
 // Start the server over stdio
 async function main() {
+  await ensureAuthenticated();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
