@@ -4,8 +4,17 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const result = spawnSync("bun", [join(__dirname, "../src/index.ts"), ...process.argv.slice(2)], {
-  stdio: "inherit",
-  env: process.env,
-});
-process.exit(result.status ?? 0);
+
+if (process.argv.includes("--auth")) {
+  const result = spawnSync("bun", [join(__dirname, "../scripts/auth.ts")], {
+    stdio: "inherit",
+    env: process.env,
+  });
+  process.exit(result.status ?? 0);
+} else {
+  const result = spawnSync("bun", [join(__dirname, "../src/index.ts"), ...process.argv.slice(2)], {
+    stdio: "inherit",
+    env: process.env,
+  });
+  process.exit(result.status ?? 0);
+}
